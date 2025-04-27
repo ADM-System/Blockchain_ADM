@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blockchain</title>
+</head>
+<body>
+    <h1>Blockchain</h1>
+    <h2>Aggiungi un Blocco</h2>
+    <form id="addBlockForm">
+        <input type="text" id="blockData" placeholder="Inserisci i dati del blocco" required>
+        <button type="submit">Aggiungi Blocco</button>
+    </form>
+
+    <h2>Blockchain</h2>
+    <div id="blockchain"></div>
+
+    <script>
+        document.getElementById('addBlockForm').onsubmit = async function(event) {
+            event.preventDefault();
+            const data = document.getElementById('blockData').value;
+            await fetch('/addBlock', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ data })
+            });
+            document.getElementById('blockData').value = '';
+            loadBlockchain();
+        };
+
+        async function loadBlockchain() {
+            const response = await fetch('/blockchain');
+            const blockchain = await response.json();
+            const blockchainDiv = document.getElementById('blockchain');
+            blockchainDiv.innerHTML = '';
+            blockchain.forEach(block => {
+                blockchainDiv.innerHTML += `<p>Block #${block.Index}: ${block.Data}</p>`;
+            });
+        }
+
+        loadBlockchain();
+    </script>
+</body>
+</html>

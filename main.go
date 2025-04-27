@@ -3,9 +3,9 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
-	"os"
-	"strings"
+	"net/http"
 	"time"
 )
 
@@ -48,24 +48,10 @@ func calculateHash(block Block) string {
 	return hex.EncodeToString(hashInBytes)
 }
 
-// Funzione per verificare se l'hash soddisfa la difficoltà
-func (block *Block) hasValidHash(difficulty int) bool {
-	prefix := strings.Repeat("0", difficulty)
-	return strings.HasPrefix(block.Hash, prefix)
-}
-
-// Funzione per il mining di un blocco
-func (block *Block) mineBlock(difficulty int) {
-	for !block.hasValidHash(difficulty) {
-		block.Nonce++
-		block.Hash = calculateHash(*block)
-	}
-}
-
 // Funzione per inizializzare la blockchain
 func NewBlockchain(difficulty int) Blockchain {
 	genesisBlock := NewBlock(0, "Genesis Block", "")
-	genesisBlock.mineBlock(difficulty)
+	genesisBlock.Hash = calculateHash(genesisBlock)
 	return Blockchain{
 		Chain:        []Block{genesisBlock},
 		Difficulty:   difficulty,
@@ -73,93 +59,35 @@ func NewBlockchain(difficulty int) Blockchain {
 	}
 }
 
-// Funzione per verificare se un blocco è valido
-func (block *Block) IsValid() bool {
-	// Verifica che l'hash calcolato corrisponda all'hash memorizzato
-	calculatedHash := calculateHash(*block)
-	return calculatedHash == block.Hash
-}
-
-// Funzione per verificare l'intera blockchain
-func (bc *Blockchain) IsValid() bool {
-	for i := 1; i < len(bc.Chain); i++ {
-		currentBlock := bc.Chain[i]
-		previousBlock := bc.Chain[i-1]
-
-		// Verifica che l'hash del blocco corrente sia valido
-		if !currentBlock.IsValid() {
-			return false
-		}
-
-		// Verifica che il blocco corrente punti correttamente al blocco precedente
-		if currentBlock.PrevHash != previousBlock.Hash {
-			return false
-		}
-	}
-	return true
-}
-
 // Funzione per aggiungere un nuovo blocco alla blockchain
-func (bc *Blockchain) AddBlock(data string) error {
+func (bc *Blockchain) AddBlock(data string) {
 	prevBlock := bc.Chain[len(bc.Chain)-1]
 	newBlock := NewBlock(prevBlock.Index+1, data, prevBlock.Hash)
-
-	// Mining del nuovo blocco
-	newBlock.mineBlock(bc.Difficulty)
-
-	// Verifica che il nuovo blocco sia valido
-	if !newBlock.IsValid() {
-		return fmt.Errorf("il nuovo blocco non è valido")
-	}
-
+	newBlock.Hash = calculateHash(newBlock)
 	bc.Chain = append(bc.Chain, newBlock)
-	return nil
 }
 
+// Funzione principale
 func main() {
 	blockchain := NewBlockchain(4) // Inizializza la blockchain
 
-	for {
-		fmt.Println("Scegli un'opzione:")
-		fmt.Println("1. Aggiungi un blocco")
-		fmt.Println("2. Visualizza la blockchain")
-		fmt.Println("3. Verifica la validità della blockchain")
-		fmt.Println("4. Esci")
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "static/index.html")
+	})
 
-		var choice int
-		fmt.Scan(&choice)
-
-		switch choice {
-		case 1:
-			var data string
-			fmt.Print("Inserisci i dati del blocco: ")
-			fmt.Scan(&data)
-			err := blockchain.AddBlock(data)
-			if err != nil {
-				fmt.Printf("Errore nell'aggiunta del blocco: %v\n", err)
-			} else {
-				fmt.Println("Blocco aggiunto con successo!")
-			}
-		case 2:
-			for _, block := range blockchain.Chain {
-				fmt.Printf("Block #%d\n", block.Index)
-				fmt.Printf("Timestamp: %s\n", block.Timestamp)
-				fmt.Printf("Data: %s\n", block.Data)
-				fmt.Printf("PrevHash: %s\n", block.PrevHash)
-				fmt.Printf("Hash: %s\n", block.Hash)
-				fmt.Printf("Nonce: %d\n\n", block.Nonce)
-			}
-		case 3:
-			if blockchain.IsValid() {
-				fmt.Println("La blockchain è valida!")
-			} else {
-				fmt.Println("La blockchain non è valida!")
-			}
-		case 4:
-			fmt.Println("Uscita...")
-			os.Exit(0)
-		default:
-			fmt.Println("Scelta non valida. Riprova.")
+	http.HandleFunc("/addBlock", func(w http.ResponseWriter, r *http.Request) {
+		var newBlock struct {
+			Data string `json:"data"`
 		}
-	}
+		json.NewDecoder(r.Body).Decode(&newBlock)
+		blockchain.AddBlock(newBlock.Data)
+		w.WriteHeader(http.StatusOK)
+	})
+
+	http.HandleFunc("/blockchain", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(blockchain.Chain)
+	})
+
+	fmt.Println("Server in esecuzione su http://localhost:8080")
+	http.ListenAndServe(":8080", nil)
 }
