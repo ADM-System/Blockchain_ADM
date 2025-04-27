@@ -13,12 +13,16 @@ Questo è un esempio di una **blockchain** scritta in **Go**. La blockchain è c
 Ogni blocco è creato e collegato alla catena in modo sicuro.
 
 ## Funzionalità
-
+1)
 - Creazione di blocchi con timestamp.
 - Calcolo dell'hash di ogni blocco per garantire l'integrità della blockchain.
 - Ogni blocco fa riferimento all'hash del blocco precedente.
-
+  
 ![image](https://github.com/user-attachments/assets/a9d27b96-55ff-4928-8a65-8b2254126983)
+
+2) aggiunta del Nounce per dare un numero ai blocchi , ed aggiunto un menu' dal quale possiamo aggiungere un blocco , visualizzare l'intera blockchain everificarne la validità e poi uscire.
+
+![image](https://github.com/user-attachments/assets/6ddf2d95-0de5-4a6b-bb4b-dfec5e121c0d)
 
   
 ## Tecnologie utilizzate
