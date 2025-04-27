@@ -22,10 +22,7 @@ Ogni blocco è creato e collegato alla catena in modo sicuro.
 
 2) aggiunta del Nounce per dare un numero ai blocchi , ed aggiunto un menu' dal quale possiamo aggiungere un blocco , visualizzare l'intera blockchain everificarne la validità e poi uscire.
 
-
-  
-
-![image](https://github.com/user-attachments/assets/a9d27b96-55ff-4928-8a65-8b2254126983)
+![image](https://github.com/user-attachments/assets/6ddf2d95-0de5-4a6b-bb4b-dfec5e121c0d)
 
   
 ## Tecnologie utilizzate
