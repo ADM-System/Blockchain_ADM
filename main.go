@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 )
@@ -116,36 +117,49 @@ func (bc *Blockchain) AddBlock(data string) error {
 }
 
 func main() {
-	// Inizializziamo una nuova blockchain con difficoltà 4
-	blockchain := NewBlockchain(4)
+	blockchain := NewBlockchain(4) // Inizializza la blockchain
 
-	// Aggiungiamo alcuni blocchi
-	err := blockchain.AddBlock("First block after Genesis")
-	if err != nil {
-		fmt.Printf("Errore nell'aggiunta del blocco: %v\n", err)
-		return
-	}
+	for {
+		fmt.Println("Scegli un'opzione:")
+		fmt.Println("1. Aggiungi un blocco")
+		fmt.Println("2. Visualizza la blockchain")
+		fmt.Println("3. Verifica la validità della blockchain")
+		fmt.Println("4. Esci")
 
-	err = blockchain.AddBlock("Second block after Genesis")
-	if err != nil {
-		fmt.Printf("Errore nell'aggiunta del blocco: %v\n", err)
-		return
-	}
+		var choice int
+		fmt.Scan(&choice)
 
-	// Verifichiamo l'integrità della blockchain
-	if blockchain.IsValid() {
-		fmt.Println("La blockchain è valida!")
-	} else {
-		fmt.Println("La blockchain non è valida!")
-	}
-
-	// Mostriamo i blocchi della blockchain
-	for _, block := range blockchain.Chain {
-		fmt.Printf("Block #%d\n", block.Index)
-		fmt.Printf("Timestamp: %s\n", block.Timestamp)
-		fmt.Printf("Data: %s\n", block.Data)
-		fmt.Printf("PrevHash: %s\n", block.PrevHash)
-		fmt.Printf("Hash: %s\n", block.Hash)
-		fmt.Printf("Nonce: %d\n\n", block.Nonce)
+		switch choice {
+		case 1:
+			var data string
+			fmt.Print("Inserisci i dati del blocco: ")
+			fmt.Scan(&data)
+			err := blockchain.AddBlock(data)
+			if err != nil {
+				fmt.Printf("Errore nell'aggiunta del blocco: %v\n", err)
+			} else {
+				fmt.Println("Blocco aggiunto con successo!")
+			}
+		case 2:
+			for _, block := range blockchain.Chain {
+				fmt.Printf("Block #%d\n", block.Index)
+				fmt.Printf("Timestamp: %s\n", block.Timestamp)
+				fmt.Printf("Data: %s\n", block.Data)
+				fmt.Printf("PrevHash: %s\n", block.PrevHash)
+				fmt.Printf("Hash: %s\n", block.Hash)
+				fmt.Printf("Nonce: %d\n\n", block.Nonce)
+			}
+		case 3:
+			if blockchain.IsValid() {
+				fmt.Println("La blockchain è valida!")
+			} else {
+				fmt.Println("La blockchain non è valida!")
+			}
+		case 4:
+			fmt.Println("Uscita...")
+			os.Exit(0)
+		default:
+			fmt.Println("Scelta non valida. Riprova.")
+		}
 	}
 }
