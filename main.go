@@ -9,14 +9,21 @@ import (
 	"time"
 )
 
+// Struttura per rappresentare una transazione
+type Transaction struct {
+	Sender    string  `json:"sender"`
+	Recipient string  `json:"recipient"`
+	Amount    float64 `json:"amount"`
+}
+
 // Block rappresenta un singolo blocco nella blockchain
 type Block struct {
-	Index     int    // Posizione del blocco nella catena
-	Timestamp string // Quando è stato creato il blocco
-	Data      string // Dati memorizzati nel blocco
-	PrevHash  string // Hash del blocco precedente
-	Hash      string // Hash del blocco corrente
-	Nonce     int    // Numero usato per il mining
+	Index        int           // Posizione del blocco nella catena
+	Timestamp    string        // Quando è stato creato il blocco
+	Transactions []Transaction // Dati memorizzati nel blocco
+	PrevHash     string        // Hash del blocco precedente
+	Hash         string        // Hash del blocco corrente
+	Nonce        int           // Numero usato per il mining
 }
 
 // Blockchain è una lista di blocchi
@@ -27,21 +34,21 @@ type Blockchain struct {
 }
 
 // Funzione per creare un nuovo blocco
-func NewBlock(index int, data, prevHash string) Block {
+func NewBlock(index int, transactions []Transaction, prevHash string) Block {
 	block := Block{
-		Index:     index,
-		Timestamp: time.Now().String(),
-		Data:      data,
-		PrevHash:  prevHash,
-		Hash:      "",
-		Nonce:     0,
+		Index:        index,
+		Timestamp:    time.Now().String(),
+		Transactions: transactions,
+		PrevHash:     prevHash,
+		Hash:         "",
+		Nonce:        0,
 	}
 	return block
 }
 
 // Funzione per calcolare l'hash di un blocco
 func calculateHash(block Block) string {
-	record := fmt.Sprintf("%d%s%s%s%d", block.Index, block.Timestamp, block.Data, block.PrevHash, block.Nonce)
+	record := fmt.Sprintf("%d%s%s%s%d", block.Index, block.Timestamp, block.Transactions, block.PrevHash, block.Nonce)
 	hash := sha256.New()
 	hash.Write([]byte(record))
 	hashInBytes := hash.Sum(nil)
@@ -50,7 +57,7 @@ func calculateHash(block Block) string {
 
 // Funzione per inizializzare la blockchain
 func NewBlockchain(difficulty int) Blockchain {
-	genesisBlock := NewBlock(0, "Genesis Block", "")
+	genesisBlock := NewBlock(0, []Transaction{}, "")
 	genesisBlock.Hash = calculateHash(genesisBlock)
 	return Blockchain{
 		Chain:        []Block{genesisBlock},
@@ -60,9 +67,9 @@ func NewBlockchain(difficulty int) Blockchain {
 }
 
 // Funzione per aggiungere un nuovo blocco alla blockchain
-func (bc *Blockchain) AddBlock(data string) {
+func (bc *Blockchain) AddBlock(transactions []Transaction) {
 	prevBlock := bc.Chain[len(bc.Chain)-1]
-	newBlock := NewBlock(prevBlock.Index+1, data, prevBlock.Hash)
+	newBlock := NewBlock(prevBlock.Index+1, transactions, prevBlock.Hash)
 	newBlock.Hash = calculateHash(newBlock)
 	bc.Chain = append(bc.Chain, newBlock)
 }
@@ -77,10 +84,10 @@ func main() {
 
 	http.HandleFunc("/addBlock", func(w http.ResponseWriter, r *http.Request) {
 		var newBlock struct {
-			Data string `json:"data"`
+			Transactions []Transaction `json:"transactions"`
 		}
 		json.NewDecoder(r.Body).Decode(&newBlock)
-		blockchain.AddBlock(newBlock.Data)
+		blockchain.AddBlock(newBlock.Transactions)
 		w.WriteHeader(http.StatusOK)
 	})
 

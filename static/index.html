@@ -7,27 +7,36 @@
 </head>
 <body>
     <h1>Blockchain</h1>
-    <h2>Aggiungi un Blocco</h2>
-    <form id="addBlockForm">
-        <input type="text" id="blockData" placeholder="Inserisci i dati del blocco" required>
-        <button type="submit">Aggiungi Blocco</button>
+    <h2>Aggiungi una Transazione</h2>
+    <form id="addTransactionForm">
+        <input type="text" id="sender" placeholder="Mittente" required>
+        <input type="text" id="recipient" placeholder="Destinatario" required>
+        <input type="number" id="amount" placeholder="Importo" required>
+        <button type="submit">Aggiungi Transazione</button>
     </form>
 
     <h2>Blockchain</h2>
     <div id="blockchain"></div>
 
     <script>
-        document.getElementById('addBlockForm').onsubmit = async function(event) {
+        document.getElementById('addTransactionForm').onsubmit = async function(event) {
             event.preventDefault();
-            const data = document.getElementById('blockData').value;
+            const sender = document.getElementById('sender').value;
+            const recipient = document.getElementById('recipient').value;
+            const amount = parseFloat(document.getElementById('amount').value);
+            const transaction = { sender, recipient, amount };
+
             await fetch('/addBlock', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ data })
+                body: JSON.stringify({ transactions: [transaction] })
             });
-            document.getElementById('blockData').value = '';
+
+            document.getElementById('sender').value = '';
+            document.getElementById('recipient').value = '';
+            document.getElementById('amount').value = '';
             loadBlockchain();
         };
 
@@ -37,7 +46,7 @@
             const blockchainDiv = document.getElementById('blockchain');
             blockchainDiv.innerHTML = '';
             blockchain.forEach(block => {
-                blockchainDiv.innerHTML += `<p>Block #${block.Index}: ${block.Data}</p>`;
+                blockchainDiv.innerHTML += `<p>Block #${block.Index}: ${JSON.stringify(block.Transactions)}</p>`;
             });
         }
 
