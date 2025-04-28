@@ -189,6 +189,10 @@ func main() {
 		}
 	})
 
+	http.HandleFunc("/mempool", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(pendingTransactions)
+	})
+
 	defer func() {
 		if err := blockchain.SaveToFile("blockchain.json"); err != nil {
 			fmt.Println("Errore nel salvataggio della blockchain:", err)

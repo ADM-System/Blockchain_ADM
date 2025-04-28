@@ -20,6 +20,9 @@
     <h2>Blockchain</h2>
     <div id="blockchain"></div>
 
+    <h2>Transazioni in sospeso (Mempool)</h2>
+    <div id="mempool"></div>
+
     <div id="loadingMessage" style="display: none;">Mining in corso...</div>
 
     <button id="validateButton">Verifica Blockchain</button>
@@ -44,6 +47,7 @@
             document.getElementById('sender').value = '';
             document.getElementById('recipient').value = '';
             document.getElementById('amount').value = '';
+            loadMempool();
         };
 
         document.getElementById('mineButton').onclick = async function() {
@@ -56,6 +60,7 @@
 
             loadingMessage.style.display = 'none';
             loadBlockchain();
+            loadMempool();
         };
 
         document.getElementById('validateButton').onclick = async function() {
@@ -74,7 +79,22 @@
             });
         }
 
+        async function loadMempool() {
+            const response = await fetch('/mempool');
+            const mempool = await response.json();
+            const mempoolDiv = document.getElementById('mempool');
+            mempoolDiv.innerHTML = '';
+            if (mempool.length === 0) {
+                mempoolDiv.innerHTML = '<p>Nessuna transazione in sospeso.</p>';
+            } else {
+                mempool.forEach((tx, idx) => {
+                    mempoolDiv.innerHTML += `<p>#${idx+1}: Da <b>${tx.Sender}</b> a <b>${tx.Recipient}</b> - ${tx.Amount}</p>`;
+                });
+            }
+        }
+
         loadBlockchain();
+        loadMempool();
     </script>
 </body>
 </html>
