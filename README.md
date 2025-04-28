@@ -36,6 +36,8 @@ Ogni blocco è creato e collegato alla catena in modo sicuro.
 
 ![image](https://github.com/user-attachments/assets/ab748ee8-f099-433d-9695-4f45ed08fe0b)
 
+6)aggiunto il meccanismo mempool per memorizzare non solo 1 trasnazione ma molte di piu' in un singolo blocco e poi tramite il tasto eseguire il mining del blocco.
+
 
 
 
