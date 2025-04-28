@@ -35,6 +35,9 @@ type Blockchain struct {
 	MiningReward float64 // Ricompensa per il mining
 }
 
+// Aggiungi una variabile globale per le transazioni in sospeso
+var pendingTransactions []Transaction
+
 // Funzione per calcolare l'hash di un blocco
 func calculateHash(block Block) string {
 	record := fmt.Sprintf("%d%s%s%s%d", block.Index, block.Timestamp, block.Transactions, block.PrevHash, block.Nonce)
@@ -142,17 +145,35 @@ func main() {
 		blockchain = NewBlockchain(4) // Inizializza la blockchain se non esiste
 	}
 
+	// Inizializza il mempool vuoto
+	pendingTransactions = []Transaction{}
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "static/index.html")
 	})
 
-	http.HandleFunc("/addBlock", func(w http.ResponseWriter, r *http.Request) {
-		var newBlock struct {
-			Transactions []Transaction `json:"transactions"`
+	// Endpoint per aggiungere una transazione al mempool
+	http.HandleFunc("/addTransaction", func(w http.ResponseWriter, r *http.Request) {
+		var tx Transaction
+		if err := json.NewDecoder(r.Body).Decode(&tx); err != nil {
+			http.Error(w, "Transazione non valida", http.StatusBadRequest)
+			return
 		}
-		json.NewDecoder(r.Body).Decode(&newBlock)
-		blockchain.MineBlock(newBlock.Transactions) // Usa la funzione di mining
+		pendingTransactions = append(pendingTransactions, tx)
 		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Transazione aggiunta al mempool."))
+	})
+
+	// Endpoint per minare tutte le transazioni in sospeso
+	http.HandleFunc("/mine", func(w http.ResponseWriter, r *http.Request) {
+		if len(pendingTransactions) == 0 {
+			http.Error(w, "Nessuna transazione da minare.", http.StatusBadRequest)
+			return
+		}
+		blockchain.MineBlock(pendingTransactions)
+		pendingTransactions = []Transaction{} // Svuota il mempool dopo il mining
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Blocco minato con successo!"))
 	})
 
 	http.HandleFunc("/blockchain", func(w http.ResponseWriter, r *http.Request) {

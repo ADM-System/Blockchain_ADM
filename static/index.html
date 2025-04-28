@@ -15,10 +15,12 @@
         <button type="submit">Aggiungi Transazione</button>
     </form>
 
+    <button id="mineButton">Esegui Mining</button>
+
     <h2>Blockchain</h2>
     <div id="blockchain"></div>
 
-    <div id="loadingMessage" style="display: none;">Mining in corso...</div> <!-- Messaggio di caricamento -->
+    <div id="loadingMessage" style="display: none;">Mining in corso...</div>
 
     <button id="validateButton">Verifica Blockchain</button>
     <div id="validationMessage"></div>
@@ -31,24 +33,28 @@
             const amount = parseFloat(document.getElementById('amount').value);
             const transaction = { sender, recipient, amount };
 
-            // Mostra il messaggio di caricamento
-            const loadingMessage = document.getElementById('loadingMessage');
-            loadingMessage.style.display = 'block';
-
-            await fetch('/addBlock', {
+            await fetch('/addTransaction', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ transactions: [transaction] })
+                body: JSON.stringify(transaction)
             });
-
-            // Nascondi il messaggio di caricamento
-            loadingMessage.style.display = 'none';
 
             document.getElementById('sender').value = '';
             document.getElementById('recipient').value = '';
             document.getElementById('amount').value = '';
+        };
+
+        document.getElementById('mineButton').onclick = async function() {
+            const loadingMessage = document.getElementById('loadingMessage');
+            loadingMessage.style.display = 'block';
+
+            await fetch('/mine', {
+                method: 'POST'
+            });
+
+            loadingMessage.style.display = 'none';
             loadBlockchain();
         };
 
