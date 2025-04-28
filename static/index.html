@@ -29,6 +29,13 @@
     <button id="validateButton">Verifica Blockchain</button>
     <div id="validationMessage"></div>
 
+    <h2>Controlla Saldo</h2>
+    <div>
+        <input type="text" id="addressInput" placeholder="Indirizzo da controllare">
+        <button id="checkBalance">Controlla Saldo</button>
+        <div id="balanceResult"></div>
+    </div>
+
     <script>
         document.getElementById('addTransactionForm').onsubmit = async function(event) {
             event.preventDefault();
@@ -81,6 +88,19 @@
             const response = await fetch('/validate');
             const message = await response.text();
             document.getElementById('validationMessage').innerText = message;
+        };
+
+        document.getElementById('checkBalance').onclick = async function() {
+            const address = document.getElementById('addressInput').value;
+            if (!address) {
+                alert("Inserisci un indirizzo!");
+                return;
+            }
+
+            const response = await fetch(`/balance?address=${encodeURIComponent(address)}`);
+            const data = await response.json();
+            document.getElementById('balanceResult').innerHTML = 
+                `Saldo di ${data.address}: ${data.balance} coins`;
         };
 
         async function loadBlockchain() {

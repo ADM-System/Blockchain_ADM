@@ -147,6 +147,28 @@ func LoadBlockchainFromFile(filename string) (Blockchain, error) {
 	return bc, err
 }
 
+// Funzione per calcolare il saldo di un indirizzo
+func (bc *Blockchain) GetBalance(address string) float64 {
+	balance := 0.0
+
+	// Scorri tutti i blocchi
+	for _, block := range bc.Chain {
+		// Scorri tutte le transazioni nel blocco
+		for _, tx := range block.Transactions {
+			// Se l'indirizzo è il destinatario, aggiungi l'importo
+			if tx.Recipient == address {
+				balance += tx.Amount
+			}
+			// Se l'indirizzo è il mittente, sottrai l'importo
+			if tx.Sender == address {
+				balance -= tx.Amount
+			}
+		}
+	}
+
+	return balance
+}
+
 // Funzione principale
 func main() {
 	blockchain, err := LoadBlockchainFromFile("blockchain.json")
@@ -208,6 +230,19 @@ func main() {
 
 	http.HandleFunc("/mempool", func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(pendingTransactions)
+	})
+
+	http.HandleFunc("/balance", func(w http.ResponseWriter, r *http.Request) {
+		address := r.URL.Query().Get("address")
+		if address == "" {
+			http.Error(w, "Indirizzo non specificato", http.StatusBadRequest)
+			return
+		}
+		balance := blockchain.GetBalance(address)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"address": address,
+			"balance": balance,
+		})
 	})
 
 	defer func() {
