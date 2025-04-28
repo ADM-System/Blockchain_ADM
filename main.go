@@ -72,8 +72,17 @@ func NewBlock(index int, transactions []Transaction, prevHash string) Block {
 }
 
 // Funzione per il mining di un blocco
-func (bc *Blockchain) MineBlock(transactions []Transaction) {
+func (bc *Blockchain) MineBlock(transactions []Transaction, miner string) {
 	prevBlock := bc.Chain[len(bc.Chain)-1]
+
+	// Aggiungi la transazione di ricompensa per il miner
+	rewardTx := Transaction{
+		Sender:    "SYSTEM",
+		Recipient: miner,
+		Amount:    bc.MiningReward,
+	}
+	transactions = append(transactions, rewardTx)
+
 	newBlock := NewBlock(prevBlock.Index+1, transactions, prevBlock.Hash)
 
 	// Definisci la difficoltà
@@ -96,7 +105,7 @@ func (bc *Blockchain) MineBlock(transactions []Transaction) {
 
 // Funzione per aggiungere un nuovo blocco alla blockchain
 func (bc *Blockchain) AddBlock(transactions []Transaction) {
-	bc.MineBlock(transactions) // Usa la funzione di mining
+	bc.MineBlock(transactions, "") // Usa la funzione di mining
 }
 
 // Funzione per verificare la validità della blockchain
@@ -170,7 +179,15 @@ func main() {
 			http.Error(w, "Nessuna transazione da minare.", http.StatusBadRequest)
 			return
 		}
-		blockchain.MineBlock(pendingTransactions)
+		// Ricevi il nome del miner dal body (JSON)
+		var data struct {
+			Miner string `json:"miner"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&data); err != nil || data.Miner == "" {
+			http.Error(w, "Nome del miner mancante o non valido.", http.StatusBadRequest)
+			return
+		}
+		blockchain.MineBlock(pendingTransactions, data.Miner)
 		pendingTransactions = []Transaction{} // Svuota il mempool dopo il mining
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("Blocco minato con successo!"))
