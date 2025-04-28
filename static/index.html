@@ -18,6 +18,11 @@
     <h2>Blockchain</h2>
     <div id="blockchain"></div>
 
+    <div id="loadingMessage" style="display: none;">Mining in corso...</div> <!-- Messaggio di caricamento -->
+
+    <button id="validateButton">Verifica Blockchain</button>
+    <div id="validationMessage"></div>
+
     <script>
         document.getElementById('addTransactionForm').onsubmit = async function(event) {
             event.preventDefault();
@@ -25,6 +30,10 @@
             const recipient = document.getElementById('recipient').value;
             const amount = parseFloat(document.getElementById('amount').value);
             const transaction = { sender, recipient, amount };
+
+            // Mostra il messaggio di caricamento
+            const loadingMessage = document.getElementById('loadingMessage');
+            loadingMessage.style.display = 'block';
 
             await fetch('/addBlock', {
                 method: 'POST',
@@ -34,10 +43,19 @@
                 body: JSON.stringify({ transactions: [transaction] })
             });
 
+            // Nascondi il messaggio di caricamento
+            loadingMessage.style.display = 'none';
+
             document.getElementById('sender').value = '';
             document.getElementById('recipient').value = '';
             document.getElementById('amount').value = '';
             loadBlockchain();
+        };
+
+        document.getElementById('validateButton').onclick = async function() {
+            const response = await fetch('/validate');
+            const message = await response.text();
+            document.getElementById('validationMessage').innerText = message;
         };
 
         async function loadBlockchain() {

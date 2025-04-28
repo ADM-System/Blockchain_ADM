@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 )
 
@@ -16,7 +18,7 @@ type Transaction struct {
 	Amount    float64 `json:"amount"`
 }
 
-// Block rappresenta un singolo blocco nella blockchain
+// Struttura per rappresentare un blocco
 type Block struct {
 	Index        int           // Posizione del blocco nella catena
 	Timestamp    string        // Quando è stato creato il blocco
@@ -26,24 +28,11 @@ type Block struct {
 	Nonce        int           // Numero usato per il mining
 }
 
-// Blockchain è una lista di blocchi
+// Struttura per rappresentare la blockchain
 type Blockchain struct {
-	Chain        []Block
-	Difficulty   int // Difficoltà del mining
-	MiningReward int // Ricompensa per il mining
-}
-
-// Funzione per creare un nuovo blocco
-func NewBlock(index int, transactions []Transaction, prevHash string) Block {
-	block := Block{
-		Index:        index,
-		Timestamp:    time.Now().String(),
-		Transactions: transactions,
-		PrevHash:     prevHash,
-		Hash:         "",
-		Nonce:        0,
-	}
-	return block
+	Chain        []Block // La catena di blocchi
+	Difficulty   int     // Difficoltà del mining
+	MiningReward float64 // Ricompensa per il mining
 }
 
 // Funzione per calcolare l'hash di un blocco
@@ -66,17 +55,92 @@ func NewBlockchain(difficulty int) Blockchain {
 	}
 }
 
-// Funzione per aggiungere un nuovo blocco alla blockchain
-func (bc *Blockchain) AddBlock(transactions []Transaction) {
+// Funzione per creare un nuovo blocco
+func NewBlock(index int, transactions []Transaction, prevHash string) Block {
+	block := Block{
+		Index:        index,
+		Timestamp:    time.Now().String(),
+		Transactions: transactions,
+		PrevHash:     prevHash,
+		Hash:         "",
+		Nonce:        0,
+	}
+	return block
+}
+
+// Funzione per il mining di un blocco
+func (bc *Blockchain) MineBlock(transactions []Transaction) {
 	prevBlock := bc.Chain[len(bc.Chain)-1]
 	newBlock := NewBlock(prevBlock.Index+1, transactions, prevBlock.Hash)
-	newBlock.Hash = calculateHash(newBlock)
-	bc.Chain = append(bc.Chain, newBlock)
+
+	// Definisci la difficoltà
+	difficulty := 4                                                 // Numero di zeri all'inizio dell'hash
+	fmt.Printf("Inizio mining del blocco #%d...\n", newBlock.Index) // Messaggio di inizio mining
+	for {
+		hash := calculateHash(newBlock)
+		if strings.HasPrefix(hash, strings.Repeat("0", difficulty)) {
+			newBlock.Hash = hash
+			bc.Chain = append(bc.Chain, newBlock)
+			fmt.Printf("Blocco #%d minato con successo! Hash: %s\n", newBlock.Index, newBlock.Hash) // Messaggio di successo
+			break
+		}
+		newBlock.Nonce++ // Incrementa il nonce e riprova
+
+		// Aggiungi un ritardo di 1 millisecondi
+		time.Sleep(1 / 2)
+	}
+}
+
+// Funzione per aggiungere un nuovo blocco alla blockchain
+func (bc *Blockchain) AddBlock(transactions []Transaction) {
+	bc.MineBlock(transactions) // Usa la funzione di mining
+}
+
+// Funzione per verificare la validità della blockchain
+func (bc *Blockchain) IsValid() bool {
+	for i := 1; i < len(bc.Chain); i++ {
+		currentBlock := bc.Chain[i]
+		prevBlock := bc.Chain[i-1]
+
+		// Controlla se l'hash del blocco corrente è corretto
+		if currentBlock.Hash != calculateHash(currentBlock) {
+			return false
+		}
+
+		// Controlla se il prevHash del blocco corrente è corretto
+		if currentBlock.PrevHash != prevBlock.Hash {
+			return false
+		}
+	}
+	return true
+}
+
+// Funzione per salvare la blockchain su disco
+func (bc *Blockchain) SaveToFile(filename string) error {
+	data, err := json.Marshal(bc)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filename, data, 0644)
+}
+
+// Funzione per caricare la blockchain da un file
+func LoadBlockchainFromFile(filename string) (Blockchain, error) {
+	var bc Blockchain
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return bc, err
+	}
+	err = json.Unmarshal(data, &bc)
+	return bc, err
 }
 
 // Funzione principale
 func main() {
-	blockchain := NewBlockchain(4) // Inizializza la blockchain
+	blockchain, err := LoadBlockchainFromFile("blockchain.json")
+	if err != nil {
+		blockchain = NewBlockchain(4) // Inizializza la blockchain se non esiste
+	}
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "static/index.html")
@@ -87,13 +151,30 @@ func main() {
 			Transactions []Transaction `json:"transactions"`
 		}
 		json.NewDecoder(r.Body).Decode(&newBlock)
-		blockchain.AddBlock(newBlock.Transactions)
+		blockchain.MineBlock(newBlock.Transactions) // Usa la funzione di mining
 		w.WriteHeader(http.StatusOK)
 	})
 
 	http.HandleFunc("/blockchain", func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(blockchain.Chain)
 	})
+
+	http.HandleFunc("/validate", func(w http.ResponseWriter, r *http.Request) {
+		isValid := blockchain.IsValid()
+		if isValid {
+			w.Write([]byte("La blockchain è valida."))
+		} else {
+			w.Write([]byte("La blockchain non è valida."))
+		}
+	})
+
+	defer func() {
+		if err := blockchain.SaveToFile("blockchain.json"); err != nil {
+			fmt.Println("Errore nel salvataggio della blockchain:", err)
+		} else {
+			fmt.Println("Blockchain salvata con successo.")
+		}
+	}()
 
 	fmt.Println("Server in esecuzione su http://localhost:8080")
 	http.ListenAndServe(":8080", nil)
