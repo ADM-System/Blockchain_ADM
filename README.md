@@ -26,7 +26,12 @@ Ogni blocco è creato e collegato alla catena in modo sicuro.
 
 3) aggiunta un interfaccia grafica web grazsie alla aggiunta si un server web locale scritto ed implementato nel codice in go
 
-4) ![image](https://github.com/user-attachments/assets/e1359ac1-92b6-4923-adef-cfa560bb0da8)
+ ![image](https://github.com/user-attachments/assets/e1359ac1-92b6-4923-adef-cfa560bb0da8)
+
+ 4) aggiunto un sistema array  che tiene tyraccia delle transazioni all'interno del blocco come da foto
+  
+  ![image](https://github.com/user-attachments/assets/a3ea5470-fe3d-4dfc-ad15-d67d4126dbf7)
+
 
 
   
