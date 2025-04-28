@@ -24,6 +24,11 @@ Ogni blocco è creato e collegato alla catena in modo sicuro.
 
 ![image](https://github.com/user-attachments/assets/6ddf2d95-0de5-4a6b-bb4b-dfec5e121c0d)
 
+3) aggiunta un interfaccia grafica web grazsie alla aggiunta si un server web locale scritto ed implementato nel codice in go
+
+4) ![image](https://github.com/user-attachments/assets/e1359ac1-92b6-4923-adef-cfa560bb0da8)
+
+
   
 ## Tecnologie utilizzate
 
