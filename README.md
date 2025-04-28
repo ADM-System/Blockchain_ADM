@@ -32,6 +32,11 @@ Ogni blocco è creato e collegato alla catena in modo sicuro.
   
   ![image](https://github.com/user-attachments/assets/a3ea5470-fe3d-4dfc-ad15-d67d4126dbf7)
 
+5) aggiunta del meccanismo di mining e aggiunto un bottone per il controllo della validità della blockcahin
+
+![image](https://github.com/user-attachments/assets/ab748ee8-f099-433d-9695-4f45ed08fe0b)
+
+
 
 
   
