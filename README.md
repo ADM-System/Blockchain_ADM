@@ -40,6 +40,9 @@ Ogni blocco è creato e collegato alla catena in modo sicuro.
 
 7) aggiunto il meccanismo di ricompensa per il miner che viene specificato nel campo , e la sua ricompensa viene inclusa nel blocco.
 8) aggiunto calcolo del saldo corrente per ogni utente.
+9) aggiunto anche calcolo del saldo per opgni utente con blocco della transazione se il salvo è insufficiente , aggiunta firma e il calcolo del saldo dell'utente , inoltre ho aggiunto un utente admin che parte già con dei coin per test.
+    ![image](https://github.com/user-attachments/assets/b5ca7907-be52-4074-ae6e-13508665daa4)
+
 
 
 
