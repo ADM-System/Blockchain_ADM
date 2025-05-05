@@ -16,6 +16,7 @@ type Transaction struct {
 	Sender    string  `json:"sender"`
 	Recipient string  `json:"recipient"`
 	Amount    float64 `json:"amount"`
+	Signature string  `json:"signature"`
 }
 
 // Struttura per rappresentare un blocco
@@ -49,7 +50,13 @@ func calculateHash(block Block) string {
 
 // Funzione per inizializzare la blockchain
 func NewBlockchain(difficulty int) Blockchain {
-	genesisBlock := NewBlock(0, []Transaction{}, "")
+	// Transazione speciale per dare 100 coins ad "admin"
+	genesisTx := Transaction{
+		Sender:    "SYSTEM",
+		Recipient: "admin",
+		Amount:    100,
+	}
+	genesisBlock := NewBlock(0, []Transaction{genesisTx}, "")
 	genesisBlock.Hash = calculateHash(genesisBlock)
 	return Blockchain{
 		Chain:        []Block{genesisBlock},
@@ -190,6 +197,15 @@ func main() {
 			http.Error(w, "Transazione non valida", http.StatusBadRequest)
 			return
 		}
+		// Controllo saldo solo se il mittente non è "SYSTEM"
+		if tx.Sender != "SYSTEM" && blockchain.GetBalance(tx.Sender) < tx.Amount {
+			http.Error(w, "Saldo insufficiente per il mittente", http.StatusBadRequest)
+			return
+		}
+		if tx.Sender != "SYSTEM" && tx.Signature == "" {
+			http.Error(w, "Transazione non firmata", http.StatusBadRequest)
+			return
+		}
 		pendingTransactions = append(pendingTransactions, tx)
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("Transazione aggiunta al mempool."))
@@ -243,6 +259,37 @@ func main() {
 			"address": address,
 			"balance": balance,
 		})
+	})
+
+	http.HandleFunc("/history", func(w http.ResponseWriter, r *http.Request) {
+		address := r.URL.Query().Get("address")
+		if address == "" {
+			http.Error(w, "Indirizzo non specificato", http.StatusBadRequest)
+			return
+		}
+		var history []Transaction
+		for _, block := range blockchain.Chain {
+			for _, tx := range block.Transactions {
+				if tx.Sender == address || tx.Recipient == address {
+					history = append(history, tx)
+				}
+			}
+		}
+		json.NewEncoder(w).Encode(history)
+	})
+
+	http.HandleFunc("/receiveChain", func(w http.ResponseWriter, r *http.Request) {
+		var newChain []Block
+		if err := json.NewDecoder(r.Body).Decode(&newChain); err != nil {
+			http.Error(w, "Catena non valida", http.StatusBadRequest)
+			return
+		}
+		if len(newChain) > len(blockchain.Chain) {
+			blockchain.Chain = newChain
+			w.Write([]byte("Catena aggiornata"))
+		} else {
+			w.Write([]byte("Catena non aggiornata (non più lunga)"))
+		}
 	})
 
 	defer func() {

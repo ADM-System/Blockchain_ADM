@@ -12,6 +12,7 @@
         <input type="text" id="sender" placeholder="Mittente" required>
         <input type="text" id="recipient" placeholder="Destinatario" required>
         <input type="number" id="amount" placeholder="Importo" required>
+        <input type="text" id="signature" placeholder="Firma (simulata)" required>
         <input type="text" id="miner" placeholder="Nome del miner" required>
         <button type="submit">Aggiungi Transazione</button>
     </form>
@@ -36,16 +37,24 @@
         <div id="balanceResult"></div>
     </div>
 
+    <h2>Storico transazioni per utente</h2>
+    <div>
+        <input type="text" id="historyInput" placeholder="Indirizzo">
+        <button id="checkHistory">Mostra Storico</button>
+        <ul id="historyResult"></ul>
+    </div>
+
     <script>
         document.getElementById('addTransactionForm').onsubmit = async function(event) {
             event.preventDefault();
             const sender = document.getElementById('sender').value;
             const recipient = document.getElementById('recipient').value;
             const amount = parseFloat(document.getElementById('amount').value);
+            const signature = document.getElementById('signature').value;
             const miner = document.getElementById('miner').value;
-            const transaction = { sender, recipient, amount };
+            const transaction = { sender, recipient, amount, signature };
 
-            await fetch('/addTransaction', {
+            const response = await fetch('/addTransaction', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -53,10 +62,16 @@
                 body: JSON.stringify(transaction)
             });
 
+            if (!response.ok) {
+                const errorMsg = await response.text();
+                alert(errorMsg);
+                return;
+            }
+
             document.getElementById('sender').value = '';
             document.getElementById('recipient').value = '';
             document.getElementById('amount').value = '';
-            document.getElementById('miner').value = '';
+            document.getElementById('signature').value = '';
             loadMempool();
         };
 
@@ -103,13 +118,44 @@
                 `Saldo di ${data.address}: ${data.balance} coins`;
         };
 
+        document.getElementById('checkHistory').onclick = async function() {
+            const address = document.getElementById('historyInput').value;
+            if (!address) {
+                alert("Inserisci un indirizzo!");
+                return;
+            }
+            const response = await fetch(`/history?address=${encodeURIComponent(address)}`);
+            const history = await response.json();
+            const historyResult = document.getElementById('historyResult');
+            historyResult.innerHTML = '';
+            if (history.length === 0) {
+                historyResult.innerHTML = '<li>Nessuna transazione trovata.</li>';
+            } else {
+                history.forEach(tx => {
+                    historyResult.innerHTML += `<li>Da <b>${tx.Sender}</b> a <b>${tx.Recipient}</b>: ${tx.Amount} (Firma: ${tx.Signature})</li>`;
+                });
+            }
+        };
+
         async function loadBlockchain() {
             const response = await fetch('/blockchain');
             const blockchain = await response.json();
             const blockchainDiv = document.getElementById('blockchain');
             blockchainDiv.innerHTML = '';
             blockchain.forEach(block => {
-                blockchainDiv.innerHTML += `<p>Block #${block.Index}: ${JSON.stringify(block.Transactions)}</p>`;
+                blockchainDiv.innerHTML += `
+                    <div style="border:1px solid #ccc; margin:10px; padding:10px;">
+                        <b>Blocco #${block.Index}</b><br>
+                        <b>Timestamp:</b> ${block.Timestamp}<br>
+                        <b>Hash:</b> ${block.Hash}<br>
+                        <b>PrevHash:</b> ${block.PrevHash}<br>
+                        <b>Nonce:</b> ${block.Nonce}<br>
+                        <b>Transazioni:</b>
+                        <ul>
+                            ${block.Transactions.map(tx => `<li>Da <b>${tx.Sender}</b> a <b>${tx.Recipient}</b>: ${tx.Amount}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
             });
         }
 
