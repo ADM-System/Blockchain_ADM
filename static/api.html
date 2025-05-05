@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Documentazione API Blockchain</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 30px; }
+        code { background: #eee; padding: 2px 4px; }
+        pre { background: #f8f8f8; padding: 10px; border: 1px solid #ccc; }
+        h2 { margin-top: 30px; }
+    </style>
+</head>
+<body>
+    <h1>Documentazione API REST Blockchain</h1>
+    <p>Questa pagina descrive gli endpoint disponibili per interagire con la blockchain.</p>
+
+    <h2>GET /blockchain</h2>
+    <p>Restituisce la blockchain completa.</p>
+    <pre>
+GET /blockchain
+Risposta: JSON array di blocchi
+    </pre>
+
+    <h2>GET /mempool</h2>
+    <p>Restituisce le transazioni in sospeso (mempool).</p>
+    <pre>
+GET /mempool
+Risposta: JSON array di transazioni
+    </pre>
+
+    <h2>POST /addTransaction</h2>
+    <p>Aggiunge una transazione al mempool e la propaga ai peer.</p>
+    <pre>
+POST /addTransaction
+Body (JSON):
+{
+  "sender": "mittente",
+  "recipient": "destinatario",
+  "amount": 10,
+  "signature": "firma_base64",
+  "nonce": 1,
+  "pubkey": "chiave_pubblica_base64"
+}
+Risposta: 200 OK o errore
+    </pre>
+
+    <h2>POST /mine</h2>
+    <p>Minare tutte le transazioni in sospeso.</p>
+    <pre>
+POST /mine
+Body (JSON):
+{
+  "miner": "nome_miner"
+}
+Risposta: 200 OK o errore
+    </pre>
+
+    <h2>GET /balance?address=indirizzo</h2>
+    <p>Restituisce il saldo di un indirizzo.</p>
+    <pre>
+GET /balance?address=admin
+Risposta: { "address": "admin", "balance": 100 }
+    </pre>
+
+    <h2>GET /history?address=indirizzo</h2>
+    <p>Restituisce lo storico delle transazioni di un indirizzo.</p>
+    <pre>
+GET /history?address=admin
+Risposta: JSON array di transazioni
+    </pre>
+
+    <h2>GET /addresses</h2>
+    <p>Restituisce tutti gli indirizzi e i loro saldi.</p>
+    <pre>
+GET /addresses
+Risposta: { "admin": 100, "bob": 50, ... }
+    </pre>
+
+    <h2>POST /receiveTransaction</h2>
+    <p>Endpoint usato dai peer per propagare una transazione.</p>
+    <pre>
+POST /receiveTransaction
+Body: come /addTransaction
+Risposta: 200 OK o errore
+    </pre>
+
+    <h2>GET /validate</h2>
+    <p>Verifica la validità della blockchain.</p>
+    <pre>
+GET /validate
+Risposta: testo semplice
+    </pre>
+
+    <h2>GET /static/explorer.html</h2>
+    <p>Explorer avanzato della blockchain.</p>
+
+    <hr>
+    <p>Per domande o suggerimenti, contatta lo sviluppatore!</p>
+</body>
+</html> 

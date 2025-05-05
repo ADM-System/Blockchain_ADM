@@ -143,6 +143,31 @@
             const blockchainDiv = document.getElementById('blockchain');
             blockchainDiv.innerHTML = '';
             blockchain.forEach(block => {
+                let txTable = `
+                    <table border="1" style="border-collapse:collapse; width:100%; margin-top:5px;">
+                        <tr>
+                            <th>Mittente</th>
+                            <th>Destinatario</th>
+                            <th>Importo</th>
+                            <th>Firma</th>
+                            <th>Tipo</th>
+                        </tr>
+                `;
+                block.Transactions.forEach(tx => {
+                    // Evidenzia la coinbase (ricompensa miner)
+                    const isCoinbase = tx.Sender === "SYSTEM";
+                    txTable += `
+                        <tr style="background-color:${isCoinbase ? '#ffe599' : 'white'};">
+                            <td>${tx.Sender}</td>
+                            <td>${tx.Recipient}</td>
+                            <td>${tx.Amount}</td>
+                            <td>${tx.Signature ? tx.Signature : '-'}</td>
+                            <td>${isCoinbase ? '<b>Ricompensa miner</b>' : 'Normale'}</td>
+                        </tr>
+                    `;
+                });
+                txTable += `</table>`;
+
                 blockchainDiv.innerHTML += `
                     <div style="border:1px solid #ccc; margin:10px; padding:10px;">
                         <b>Blocco #${block.Index}</b><br>
@@ -151,9 +176,7 @@
                         <b>PrevHash:</b> ${block.PrevHash}<br>
                         <b>Nonce:</b> ${block.Nonce}<br>
                         <b>Transazioni:</b>
-                        <ul>
-                            ${block.Transactions.map(tx => `<li>Da <b>${tx.Sender}</b> a <b>${tx.Recipient}</b>: ${tx.Amount}</li>`).join('')}
-                        </ul>
+                        ${txTable}
                     </div>
                 `;
             });

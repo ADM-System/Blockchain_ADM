@@ -5,11 +5,16 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 )
+
+var peers = []string{
+	"http://localhost:8081", // aggiungi qui altri peer se vuoi
+}
 
 // Struttura per rappresentare una transazione
 type Transaction struct {
@@ -17,6 +22,8 @@ type Transaction struct {
 	Recipient string  `json:"recipient"`
 	Amount    float64 `json:"amount"`
 	Signature string  `json:"signature"`
+	Nonce     int     `json:"nonce"`
+	Timestamp int64   `json:"timestamp"` // Unix timestamp
 }
 
 // Struttura per rappresentare un blocco
@@ -38,6 +45,11 @@ type Blockchain struct {
 
 // Aggiungi una variabile globale per le transazioni in sospeso
 var pendingTransactions []Transaction
+
+var lastMiningTime = make(map[string]time.Time)
+
+const miningCooldown = 10 * time.Second // tempo minimo tra due mining dello stesso miner
+const mempoolTxMaxAge = 3600            // secondi (1 ora)
 
 // Funzione per calcolare l'hash di un blocco
 func calculateHash(block Block) string {
@@ -176,6 +188,54 @@ func (bc *Blockchain) GetBalance(address string) float64 {
 	return balance
 }
 
+func syncWithPeers() {
+	for {
+		for _, peer := range peers {
+			resp, err := http.Get(peer + "/blockchain")
+			if err != nil {
+				continue
+			}
+			defer resp.Body.Close()
+			var peerChain []Block
+			if err := json.NewDecoder(resp.Body).Decode(&peerChain); err != nil {
+				continue
+			}
+			if len(peerChain) > len(blockchain.Chain) {
+				// Recupera le transazioni orfane PRIMA di sostituire la catena
+				orphans := recoverOrphanTransactions(blockchain.Chain, peerChain, pendingTransactions)
+				blockchain.Chain = peerChain
+				// Rimetti le orfane nel mempool (evita duplicati)
+				for _, tx := range orphans {
+					alreadyInMempool := false
+					for _, pending := range pendingTransactions {
+						if pending.Signature == tx.Signature && pending.Nonce == tx.Nonce {
+							alreadyInMempool = true
+							break
+						}
+					}
+					if !alreadyInMempool {
+						pendingTransactions = append(pendingTransactions, tx)
+					}
+				}
+				fmt.Println("Catena aggiornata da peer:", peer, "e transazioni orfane recuperate:", len(orphans))
+			}
+		}
+		time.Sleep(10 * time.Second)
+	}
+}
+
+// Funzione per pulire il mempool dalle transazioni troppo vecchie
+func cleanMempool() {
+	now := time.Now().Unix()
+	newPending := []Transaction{}
+	for _, tx := range pendingTransactions {
+		if now-tx.Timestamp <= mempoolTxMaxAge {
+			newPending = append(newPending, tx)
+		}
+	}
+	pendingTransactions = newPending
+}
+
 // Funzione principale
 func main() {
 	blockchain, err := LoadBlockchainFromFile("blockchain.json")
@@ -185,6 +245,16 @@ func main() {
 
 	// Inizializza il mempool vuoto
 	pendingTransactions = []Transaction{}
+
+	go syncWithPeers()
+
+	// Pulizia periodica del mempool ogni minuto
+	go func() {
+		for {
+			cleanMempool()
+			time.Sleep(60 * time.Second)
+		}
+	}()
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "static/index.html")
@@ -197,22 +267,83 @@ func main() {
 			http.Error(w, "Transazione non valida", http.StatusBadRequest)
 			return
 		}
-		// Controllo saldo solo se il mittente non è "SYSTEM"
-		if tx.Sender != "SYSTEM" && blockchain.GetBalance(tx.Sender) < tx.Amount {
-			http.Error(w, "Saldo insufficiente per il mittente", http.StatusBadRequest)
+		// Trova il nonce massimo già usato dal mittente (sia nella blockchain che nel mempool)
+		maxNonce := -1
+		for _, block := range blockchain.Chain {
+			for _, txInBlock := range block.Transactions {
+				if txInBlock.Sender == tx.Sender && txInBlock.Nonce > maxNonce {
+					maxNonce = txInBlock.Nonce
+				}
+			}
+		}
+		for _, pending := range pendingTransactions {
+			if pending.Sender == tx.Sender && pending.Nonce > maxNonce {
+				maxNonce = pending.Nonce
+			}
+		}
+		// Il nonce deve essere esattamente maxNonce+1
+		if tx.Nonce != maxNonce+1 {
+			http.Error(w, fmt.Sprintf("Nonce non valido: atteso %d, ricevuto %d", maxNonce+1, tx.Nonce), http.StatusBadRequest)
 			return
 		}
-		if tx.Sender != "SYSTEM" && tx.Signature == "" {
-			http.Error(w, "Transazione non firmata", http.StatusBadRequest)
+		// Controllo saldo solo se il mittente non è "SYSTEM"
+		if tx.Sender != "SYSTEM" {
+			// Calcola il saldo tenendo conto anche delle transazioni in sospeso
+			saldo := blockchain.GetBalance(tx.Sender)
+			for _, pending := range pendingTransactions {
+				if pending.Sender == tx.Sender {
+					saldo -= pending.Amount
+				}
+			}
+			if saldo < tx.Amount {
+				http.Error(w, "Saldo insufficiente per il mittente (considerando anche le transazioni in sospeso)", http.StatusBadRequest)
+				return
+			}
+			if tx.Signature == "" {
+				http.Error(w, "Transazione non firmata", http.StatusBadRequest)
+				return
+			}
+		}
+		// Sicurezza: importo positivo e mittente/destinatario diversi
+		if tx.Amount < 0.0001 || tx.Amount > 1000000 {
+			http.Error(w, "Importo non valido: troppo piccolo o troppo grande", http.StatusBadRequest)
+			return
+		}
+		if math.IsNaN(tx.Amount) || math.IsInf(tx.Amount, 0) {
+			http.Error(w, "Importo non valido", http.StatusBadRequest)
+			return
+		}
+		if tx.Sender == tx.Recipient {
+			http.Error(w, "Mittente e destinatario non possono essere uguali", http.StatusBadRequest)
+			return
+		}
+		// Limita la lunghezza dei campi
+		if len(tx.Sender) > 32 || len(tx.Recipient) > 32 || len(tx.Signature) > 128 {
+			http.Error(w, "Uno dei campi supera la lunghezza massima consentita", http.StatusBadRequest)
+			return
+		}
+		now := time.Now().Unix()
+		if tx.Timestamp < now-3600 || tx.Timestamp > now+300 {
+			http.Error(w, "Timestamp non valido: transazione troppo vecchia o nel futuro", http.StatusBadRequest)
 			return
 		}
 		pendingTransactions = append(pendingTransactions, tx)
+		cleanMempool()
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("Transazione aggiunta al mempool."))
+
+		// Propaga la transazione ai peer
+		go func(tx Transaction) {
+			for _, peer := range peers {
+				jsonTx, _ := json.Marshal(tx)
+				http.Post(peer+"/receiveTransaction", "application/json", strings.NewReader(string(jsonTx)))
+			}
+		}(tx)
 	})
 
 	// Endpoint per minare tutte le transazioni in sospeso
 	http.HandleFunc("/mine", func(w http.ResponseWriter, r *http.Request) {
+		cleanMempool()
 		if len(pendingTransactions) == 0 {
 			http.Error(w, "Nessuna transazione da minare.", http.StatusBadRequest)
 			return
@@ -221,85 +352,19 @@ func main() {
 		var data struct {
 			Miner string `json:"miner"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&data); err != nil || data.Miner == "" {
-			http.Error(w, "Nome del miner mancante o non valido.", http.StatusBadRequest)
+		if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+			http.Error(w, "Dati di input non validi", http.StatusBadRequest)
 			return
 		}
-		blockchain.MineBlock(pendingTransactions, data.Miner)
-		pendingTransactions = []Transaction{} // Svuota il mempool dopo il mining
+		miner := data.Miner
+		now := time.Now()
+		if t, ok := lastMiningTime[miner]; ok && now.Sub(t) < miningCooldown {
+			http.Error(w, fmt.Sprintf("Devi aspettare %v prima di minare di nuovo.", miningCooldown-now.Sub(t)), http.StatusTooManyRequests)
+			return
+		}
+		lastMiningTime[miner] = now
+		bc.MineBlock(pendingTransactions, miner)
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("Blocco minato con successo!"))
 	})
-
-	http.HandleFunc("/blockchain", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(blockchain.Chain)
-	})
-
-	http.HandleFunc("/validate", func(w http.ResponseWriter, r *http.Request) {
-		isValid := blockchain.IsValid()
-		if isValid {
-			w.Write([]byte("La blockchain è valida."))
-		} else {
-			w.Write([]byte("La blockchain non è valida."))
-		}
-	})
-
-	http.HandleFunc("/mempool", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(pendingTransactions)
-	})
-
-	http.HandleFunc("/balance", func(w http.ResponseWriter, r *http.Request) {
-		address := r.URL.Query().Get("address")
-		if address == "" {
-			http.Error(w, "Indirizzo non specificato", http.StatusBadRequest)
-			return
-		}
-		balance := blockchain.GetBalance(address)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"address": address,
-			"balance": balance,
-		})
-	})
-
-	http.HandleFunc("/history", func(w http.ResponseWriter, r *http.Request) {
-		address := r.URL.Query().Get("address")
-		if address == "" {
-			http.Error(w, "Indirizzo non specificato", http.StatusBadRequest)
-			return
-		}
-		var history []Transaction
-		for _, block := range blockchain.Chain {
-			for _, tx := range block.Transactions {
-				if tx.Sender == address || tx.Recipient == address {
-					history = append(history, tx)
-				}
-			}
-		}
-		json.NewEncoder(w).Encode(history)
-	})
-
-	http.HandleFunc("/receiveChain", func(w http.ResponseWriter, r *http.Request) {
-		var newChain []Block
-		if err := json.NewDecoder(r.Body).Decode(&newChain); err != nil {
-			http.Error(w, "Catena non valida", http.StatusBadRequest)
-			return
-		}
-		if len(newChain) > len(blockchain.Chain) {
-			blockchain.Chain = newChain
-			w.Write([]byte("Catena aggiornata"))
-		} else {
-			w.Write([]byte("Catena non aggiornata (non più lunga)"))
-		}
-	})
-
-	defer func() {
-		if err := blockchain.SaveToFile("blockchain.json"); err != nil {
-			fmt.Println("Errore nel salvataggio della blockchain:", err)
-		} else {
-			fmt.Println("Blockchain salvata con successo.")
-		}
-	}()
-
-	fmt.Println("Server in esecuzione su http://localhost:8080")
-	http.ListenAndServe(":8080", nil)
 }

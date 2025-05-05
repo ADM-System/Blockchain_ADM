@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Blockchain Explorer</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .block { border:1px solid #ccc; margin:10px; padding:10px; }
+        .coinbase { background: #ffe599; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 4px; }
+    </style>
+</head>
+<body>
+    <h1>Blockchain Explorer</h1>
+    <button onclick="loadStats()">Mostra Statistiche</button>
+    <div id="stats"></div>
+
+    <h2>Ricerca blocco</h2>
+    <input type="number" id="blockIndex" placeholder="Indice blocco">
+    <button onclick="searchBlock()">Cerca</button>
+    <div id="blockResult"></div>
+
+    <h2>Ricerca transazione</h2>
+    <input type="text" id="txSearch" placeholder="Mittente, Destinatario, Nonce o Importo">
+    <button onclick="searchTx()">Cerca</button>
+    <div id="txResult"></div>
+
+    <h2>Tutti i blocchi</h2>
+    <div id="allBlocks"></div>
+
+    <script>
+        let blockchain = [];
+
+        async function loadBlockchain() {
+            const response = await fetch('/blockchain');
+            blockchain = await response.json();
+            showAllBlocks();
+        }
+
+        function showAllBlocks() {
+            const div = document.getElementById('allBlocks');
+            div.innerHTML = '';
+            blockchain.forEach(block => {
+                div.innerHTML += renderBlock(block);
+            });
+        }
+
+        function renderBlock(block) {
+            let txTable = `
+                <table>
+                    <tr>
+                        <th>Mittente</th>
+                        <th>Destinatario</th>
+                        <th>Importo</th>
+                        <th>Nonce</th>
+                        <th>Firma</th>
+                        <th>Tipo</th>
+                    </tr>
+            `;
+            block.Transactions.forEach(tx => {
+                const isCoinbase = tx.Sender === "SYSTEM";
+                txTable += `
+                    <tr class="${isCoinbase ? 'coinbase' : ''}">
+                        <td>${tx.Sender}</td>
+                        <td>${tx.Recipient}</td>
+                        <td>${tx.Amount}</td>
+                        <td>${tx.Nonce !== undefined ? tx.Nonce : ''}</td>
+                        <td>${tx.Signature ? tx.Signature : '-'}</td>
+                        <td>${isCoinbase ? '<b>Ricompensa miner</b>' : 'Normale'}</td>
+                    </tr>
+                `;
+            });
+            txTable += `</table>`;
+            return `
+                <div class="block">
+                    <b>Blocco #${block.Index}</b><br>
+                    <b>Timestamp:</b> ${block.Timestamp}<br>
+                    <b>Hash:</b> ${block.Hash}<br>
+                    <b>PrevHash:</b> ${block.PrevHash}<br>
+                    <b>Nonce:</b> ${block.Nonce}<br>
+                    <b>Transazioni:</b>
+                    ${txTable}
+                </div>
+            `;
+        }
+
+        function searchBlock() {
+            const idx = parseInt(document.getElementById('blockIndex').value);
+            const div = document.getElementById('blockResult');
+            const block = blockchain.find(b => b.Index === idx);
+            div.innerHTML = block ? renderBlock(block) : '<p>Blocco non trovato.</p>';
+        }
+
+        function searchTx() {
+            const query = document.getElementById('txSearch').value.toLowerCase();
+            const div = document.getElementById('txResult');
+            let results = [];
+            blockchain.forEach(block => {
+                block.Transactions.forEach(tx => {
+                    if (
+                        tx.Sender.toLowerCase().includes(query) ||
+                        tx.Recipient.toLowerCase().includes(query) ||
+                        (tx.Nonce !== undefined && tx.Nonce.toString() === query) ||
+                        tx.Amount.toString() === query
+                    ) {
+                        results.push({ block: block.Index, tx });
+                    }
+                });
+            });
+            if (results.length === 0) {
+                div.innerHTML = '<p>Nessuna transazione trovata.</p>';
+            } else {
+                div.innerHTML = results.map(r =>
+                    `<div>Nel blocco #${r.block}: Da <b>${r.tx.Sender}</b> a <b>${r.tx.Recipient}</b> - ${r.tx.Amount} (Nonce: ${r.tx.Nonce})</div>`
+                ).join('');
+            }
+        }
+
+        function loadStats() {
+            let numBlocks = blockchain.length;
+            let numTx = blockchain.reduce((acc, b) => acc + b.Transactions.length, 0);
+            let miners = {};
+            blockchain.forEach(b => {
+                b.Transactions.forEach(tx => {
+                    if (tx.Sender === "SYSTEM") {
+                        miners[tx.Recipient] = (miners[tx.Recipient] || 0) + 1;
+                    }
+                });
+            });
+            let minerList = Object.entries(miners).map(([miner, n]) => `${miner}: ${n} blocchi minati`).join('<br>');
+            document.getElementById('stats').innerHTML =
+                `<b>Numero blocchi:</b> ${numBlocks}<br>
+                 <b>Numero transazioni:</b> ${numTx}<br>
+                 <b>Miners:</b><br>${minerList}`;
+        }
+
+        loadBlockchain();
+    </script>
+</body>
+</html> 
