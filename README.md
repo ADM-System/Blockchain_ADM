@@ -1,0 +1,1 @@
+Il file presente qui' è il file principale della blockchain ovvero il core quello che controlla il tutto , spostato su BRANCH MAIN invece che su BRANCH MASTER , ma è sempre lo stesso progetto basta selezionare il branch su GIT !!!
