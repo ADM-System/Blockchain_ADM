@@ -267,6 +267,22 @@ func main() {
 			http.Error(w, "Transazione non valida", http.StatusBadRequest)
 			return
 		}
+		// Controlla se la transazione è già presente nel mempool
+		for _, pending := range pendingTransactions {
+			if pending.Sender == tx.Sender && pending.Nonce == tx.Nonce && pending.Signature == tx.Signature {
+				http.Error(w, "Transazione duplicata già presente nel mempool", http.StatusBadRequest)
+				return
+			}
+		}
+		// Controlla se la transazione è già presente nella blockchain
+		for _, block := range blockchain.Chain {
+			for _, txInBlock := range block.Transactions {
+				if txInBlock.Sender == tx.Sender && txInBlock.Nonce == tx.Nonce && txInBlock.Signature == tx.Signature {
+					http.Error(w, "Transazione duplicata già presente nella blockchain", http.StatusBadRequest)
+					return
+				}
+			}
+		}
 		// Trova il nonce massimo già usato dal mittente (sia nella blockchain che nel mempool)
 		maxNonce := -1
 		for _, block := range blockchain.Chain {
